@@ -68,7 +68,7 @@ def persist_payload_s3(job_id, data):
     return key
 
 
-def create_job_record_dynamo(job_id, planning_type, body, s3_key):
+def create_job_record_dynamo(job_id, planning_type, requested_by, action, s3_key):
     """Create a job record in DynamoDB with initial PENDING state."""
     table_name = _get_env("JOB_TABLE_NAME")
     dynamodb = boto3.resource("dynamodb")
@@ -81,8 +81,10 @@ def create_job_record_dynamo(job_id, planning_type, body, s3_key):
         "createdAt": _current_timestamp(),
         "updatedAt": _current_timestamp(),
         "payloadS3Key": s3_key,
-        "requestBody": body,
+        "requestedBy": requested_by,
     }
+    if action:
+        item["action"] = action
 
     try:
         table.put_item(Item=item)
@@ -188,7 +190,13 @@ def lambda_handler(event, context):
         job_id = _generate_job_id()
         logger.info("Generated jobId=%s for planningType=%s", job_id, planning_type)
         s3_key = persist_payload_s3(job_id, body)
-        job_item = create_job_record_dynamo(job_id, planning_type, body, s3_key)
+        job_item = create_job_record_dynamo(
+            job_id,
+            planning_type,
+            body["requestedBy"],
+            body.get("action"),
+            s3_key,
+        )
         try:
             send_job_message_sqs(job_id, planning_type, s3_key)
         except Exception as exc:

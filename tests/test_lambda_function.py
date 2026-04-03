@@ -51,6 +51,13 @@ class TestLambdaHandler:
         mock_create_dynamo.assert_called_once()
         mock_send_sqs.assert_called_once()
         mock_update_dynamo_status.assert_not_called()
+        mock_create_dynamo.assert_called_once_with(
+            "planning-test-123",
+            "network",
+            "test@example.com",
+            "replan",
+            "planning-input/planning-test-123.json",
+        )
 
     def test_lambda_handler_region_success(self, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
         mock_persist_s3.return_value = "planning-input/planning-test-123.json"
