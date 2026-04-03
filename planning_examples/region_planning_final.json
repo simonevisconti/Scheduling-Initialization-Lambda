@@ -1,0 +1,17 @@
+{
+  "planningType": "region",
+  "action": "replan",
+  "requestedBy": "planner@postnl.nl",
+  "payload": {
+    "planningDate": "2026-04-11",
+    "regionId": "utrecht-region",
+    "optimizationGoal": "time",
+    "reason": "capacity-imbalance"
+  },
+  "metadata": {
+    "requestId": "req-20260402-002",
+    "correlationId": "corr-7f82b91b",
+    "source": "planning-ui",
+    "submittedAt": "2026-04-02T10:20:00Z"
+  }
+}

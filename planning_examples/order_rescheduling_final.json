@@ -1,0 +1,21 @@
+{
+  "planningType": "order",
+  "action": "reschedule",
+  "requestedBy": "planner@postnl.nl",
+  "payload": {
+    "planningDate": "2026-04-11",
+    "orderId": "ORD-1007",
+    "regionId": "utrecht-region",
+    "newConstraints": {
+      "preferredTimeWindow": "14:00-16:00",
+      "priority": "high"
+    },
+    "reason": "customer-change"
+  },
+  "metadata": {
+    "requestId": "req-20260402-004",
+    "correlationId": "corr-7f82b91d",
+    "source": "planning-ui",
+    "submittedAt": "2026-04-02T10:30:00Z"
+  }
+}
