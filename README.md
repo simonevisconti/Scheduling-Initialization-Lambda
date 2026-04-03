@@ -1,5 +1,90 @@
 # PostNL Lambda Planning Tests
 
+## API Contract
+
+`lambda_function.py` accepts planning requests from API Gateway, validates them, stores the original payload, creates a job record, queues downstream processing, and returns an asynchronous job response.
+
+### Top-Level Request Schema
+
+Required fields:
+
+- `planningType`: one of `network`, `region`, `vehicle`, `order`
+- `requestedBy`: non-empty string
+- `payload`: JSON object
+
+Optional fields:
+
+- `action`: non-empty string
+- `metadata`: JSON object
+
+### Payload by Planning Type
+
+#### `network`
+
+Required payload fields:
+
+- `planningDate`: valid date in `YYYY-MM-DD` format
+- `planningHorizon`: non-empty string
+- `optimizationGoal`: non-empty string
+- `networkId`: non-empty string
+
+#### `region`
+
+Required payload fields:
+
+- `planningDate`: valid date in `YYYY-MM-DD` format
+- `regionId`: non-empty string
+- `optimizationGoal`: non-empty string
+- `reason`: non-empty string
+
+#### `vehicle`
+
+Required payload fields:
+
+- `planningDate`: valid date in `YYYY-MM-DD` format
+- `regionId`: non-empty string
+
+Additional rule:
+
+- at least one of `vehicleId` or `vehicleIds` must be present
+- if `vehicleIds` is provided, it must be a non-empty list of non-empty strings
+
+#### `order`
+
+Required payload fields:
+
+- `planningDate`: valid date in `YYYY-MM-DD` format
+- `orderId`: non-empty string
+- `regionId`: non-empty string
+- `reason`: non-empty string
+
+Optional payload fields:
+
+- `newConstraints`: JSON object
+
+### Success Response
+
+On success the Lambda returns `202 Accepted` with a body like:
+
+```json
+{
+  "message": "Job accepted",
+  "jobId": "planning-1234567890abcdef",
+  "planningType": "network",
+  "statusUrl": "/planning/planning-1234567890abcdef",
+  "state": "PENDING"
+}
+```
+
+### Error Responses
+
+- `400 Bad Request`: invalid JSON, missing fields, invalid `planningType`, or invalid payload values
+- `500 Internal Server Error`: missing environment configuration or failures while interacting with S3, DynamoDB, or SQS
+
+### Request Examples
+
+Example payloads are available in [planning_examples/network_planning_final.json](/home/visco/projects/PostNL/planning_examples/network_planning_final.json), [planning_examples/region_planning_final.json](/home/visco/projects/PostNL/planning_examples/region_planning_final.json), [planning_examples/vehicle_planning_final.json](/home/visco/projects/PostNL/planning_examples/vehicle_planning_final.json), and [planning_examples/order_rescheduling_final.json](/home/visco/projects/PostNL/planning_examples/order_rescheduling_final.json).
+
 ## Setup
 
 Install dependencies:
