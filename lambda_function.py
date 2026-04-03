@@ -83,6 +83,35 @@ def create_job_record_dynamo(job_id, planning_type, body, s3_key):
     return item
 
 
+def update_job_status_dynamo(job_id, status, error_message=None):
+    """Update an existing job record status in DynamoDB."""
+    table_name = _get_env("JOB_TABLE_NAME")
+    dynamodb = boto3.resource("dynamodb")
+    table = dynamodb.Table(table_name)
+
+    expression_attribute_values = {
+        ":status": status,
+        ":updatedAt": _current_timestamp(),
+    }
+    update_expression = "SET #status = :status, updatedAt = :updatedAt"
+    expression_attribute_names = {"#status": "status"}
+
+    if error_message is not None:
+        expression_attribute_values[":errorMessage"] = error_message
+        update_expression += ", errorMessage = :errorMessage"
+
+    try:
+        table.update_item(
+            Key={"jobId": job_id},
+            UpdateExpression=update_expression,
+            ExpressionAttributeNames=expression_attribute_names,
+            ExpressionAttributeValues=expression_attribute_values,
+        )
+    except ClientError:
+        logger.exception("Failed to update job status in DynamoDB")
+        raise
+
+
 def send_job_message_sqs(job_id, planning_type, s3_key):
     """Send a message to SQS to trigger downstream processing."""
     queue_url = _get_env("JOB_QUEUE_URL")
@@ -138,7 +167,11 @@ def lambda_handler(event, context):
         job_id = _generate_job_id()
         s3_key = persist_payload_s3(job_id, body)
         job_item = create_job_record_dynamo(job_id, planning_type, body, s3_key)
-        send_job_message_sqs(job_id, planning_type, s3_key)
+        try:
+            send_job_message_sqs(job_id, planning_type, s3_key)
+        except Exception as exc:
+            update_job_status_dynamo(job_id, "FAILED_TO_QUEUE", str(exc))
+            raise
 
         # 4. Return 202 accepted as this is an asynchronous planning job
         return {
