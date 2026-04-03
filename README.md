@@ -90,7 +90,13 @@ Example payloads are available in [planning_examples/network_planning_final.json
 Install dependencies:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements/app.txt
+```
+
+Recompile locked dependencies after changing [requirements/app.in](/home/visco/projects/PostNL/requirements/app.in):
+
+```bash
+pip-compile requirements/app.in --output-file requirements/app.txt
 ```
 
 If you use the project virtual environment:
@@ -142,7 +148,7 @@ venv/bin/pytest -q tests/test_lambda_function.py
 Run with coverage:
 
 ```bash
-venv/bin/pytest --cov=lambda_function --cov=validations
+venv/bin/pytest --cov=lambda_function --cov=validations --cov-report=term-missing
 ```
 
 ## Test Structure
