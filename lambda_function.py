@@ -52,8 +52,10 @@ def persist_payload_s3(job_id, data):
     try:
         s3.put_object(Bucket=bucket, Key=key, Body=content, ContentType="application/json")
     except ClientError as exc:
-        logger.exception("Failed to persist payload in S3")
+        logger.exception("Failed to persist payload in S3 for jobId=%s bucket=%s key=%s", job_id, bucket, key)
         raise
+
+    logger.info("Persisted request payload to S3 for jobId=%s bucket=%s key=%s", job_id, bucket, key)
 
     return key
 
@@ -77,8 +79,10 @@ def create_job_record_dynamo(job_id, planning_type, body, s3_key):
     try:
         table.put_item(Item=item)
     except ClientError as exc:
-        logger.exception("Failed to write job record to DynamoDB")
+        logger.exception("Failed to write job record to DynamoDB for jobId=%s table=%s", job_id, table_name)
         raise
+
+    logger.info("Created DynamoDB job record for jobId=%s planningType=%s status=%s", job_id, planning_type, item["status"])
 
     return item
 
@@ -108,8 +112,10 @@ def update_job_status_dynamo(job_id, status, error_message=None):
             ExpressionAttributeValues=expression_attribute_values,
         )
     except ClientError:
-        logger.exception("Failed to update job status in DynamoDB")
+        logger.exception("Failed to update job status in DynamoDB for jobId=%s status=%s", job_id, status)
         raise
+
+    logger.info("Updated DynamoDB job status for jobId=%s status=%s", job_id, status)
 
 
 def send_job_message_sqs(job_id, planning_type, s3_key):
@@ -126,8 +132,10 @@ def send_job_message_sqs(job_id, planning_type, s3_key):
     try:
         sqs.send_message(QueueUrl=queue_url, MessageBody=message_body)
     except ClientError as exc:
-        logger.exception("Failed to send message to SQS")
+        logger.exception("Failed to send message to SQS for jobId=%s queueUrl=%s", job_id, queue_url)
         raise
+
+    logger.info("Queued planning job for jobId=%s planningType=%s", job_id, planning_type)
 
 
 def _job_status_url(job_id):
@@ -154,26 +162,31 @@ def lambda_handler(event, context):
         - Return 400 on validation/client errors
         - Return 500 on unexpected server errors
     """
-    logger.info("Received event: %s", json.dumps(event))
+    logger.info("Received lambda event")
 
     try:
         # 1. Parse and normalize the incoming body
         body = parse_event_body(event)
+        logger.info("Parsed request body successfully")
 
         # 2. Validate payload based on planning type (network|region|vehicle)
         planning_type, payload = validate_payload(body)
+        logger.info("Validated request payload for planningType=%s requestedBy=%s", planning_type, body.get("requestedBy"))
 
         # 3. Orchestrate work items
         job_id = _generate_job_id()
+        logger.info("Generated jobId=%s for planningType=%s", job_id, planning_type)
         s3_key = persist_payload_s3(job_id, body)
         job_item = create_job_record_dynamo(job_id, planning_type, body, s3_key)
         try:
             send_job_message_sqs(job_id, planning_type, s3_key)
         except Exception as exc:
+            logger.warning("Queueing failed for jobId=%s; updating DynamoDB status to FAILED_TO_QUEUE", job_id)
             update_job_status_dynamo(job_id, "FAILED_TO_QUEUE", str(exc))
             raise
 
         # 4. Return 202 accepted as this is an asynchronous planning job
+        logger.info("Accepted planning job jobId=%s planningType=%s status=%s", job_id, planning_type, job_item["status"])
         return {
             "statusCode": 202,
             "headers": {"Content-Type": "application/json"},
@@ -197,7 +210,7 @@ def lambda_handler(event, context):
 
     except Exception as exc:
         # Unexpected S3/Dynamo/SQS or runtime issue: server-side
-        logger.exception("Unexpected error")
+        logger.exception("Unexpected error while processing planning request")
         return {
             "statusCode": 500,
             "headers": {"Content-Type": "application/json"},
