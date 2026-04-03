@@ -1,0 +1,17 @@
+{
+  "planningType": "network",
+  "action": "replan",
+  "requestedBy": "planner@postnl.nl",
+  "payload": {
+    "planningDate": "2026-04-11",
+    "planningHorizon": "daily",
+    "optimizationGoal": "distance",
+    "networkId": "nl-main-network"
+  },
+  "metadata": {
+    "requestId": "req-20260402-001",
+    "correlationId": "corr-7f82b91a",
+    "source": "planning-ui",
+    "submittedAt": "2026-04-02T10:15:00Z"
+  }
+}

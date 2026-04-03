@@ -1,0 +1,32 @@
+{
+  "planningType": "vehicle",
+  "action": "adjust",
+  "requestedBy": "planner@postnl.nl",
+  "payload": {
+    "planningDate": "2026-04-11",
+    "regionId": "utrecht-region",
+    "vehicleIds": [
+      "VEH-001",
+      "VEH-002"
+    ],
+    "orders": [
+      {
+        "orderId": "ORD-1005",
+        "pickupLocation": "NL105",
+        "deliveryLocation": "NL205"
+      },
+      {
+        "orderId": "ORD-1006",
+        "pickupLocation": "NL106",
+        "deliveryLocation": "NL206"
+      }
+    ],
+    "reason": "route-adjustment"
+  },
+  "metadata": {
+    "requestId": "req-20260402-003",
+    "correlationId": "corr-7f82b91c",
+    "source": "planning-ui",
+    "submittedAt": "2026-04-02T10:25:00Z"
+  }
+}
