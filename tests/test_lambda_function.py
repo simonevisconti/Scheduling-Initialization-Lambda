@@ -145,6 +145,31 @@ class TestLambdaHandler:
         body = json.loads(response["body"])
         assert "planningType must be one of" in body["message"]
 
+    @patch.dict(os.environ, {}, clear=True)
+    def test_lambda_handler_missing_required_env_returns_server_error(self, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
+        event = {
+            "body": json.dumps({
+                "planningType": "network",
+                "requestedBy": "test@example.com",
+                "payload": {
+                    "planningDate": "2026-04-10",
+                    "planningHorizon": "daily",
+                    "optimizationGoal": "distance",
+                    "networkId": "nl-main-network",
+                }
+            })
+        }
+
+        response = lambda_handler(event, None)
+
+        assert response["statusCode"] == 500
+        body = json.loads(response["body"])
+        assert body["message"] == "Internal server error"
+        mock_persist_s3.assert_not_called()
+        mock_create_dynamo.assert_not_called()
+        mock_send_sqs.assert_not_called()
+        mock_update_dynamo_status.assert_not_called()
+
     @patch("lambda_function.persist_payload_s3", side_effect=Exception("S3 error"))
     def test_lambda_handler_server_error(self, mock_s3_error, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
         event = {

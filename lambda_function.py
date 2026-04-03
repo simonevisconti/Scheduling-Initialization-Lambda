@@ -12,6 +12,8 @@ from validations import parse_event_body, validate_payload
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+REQUIRED_ENV_VARS = ("JOB_BUCKET_NAME", "JOB_TABLE_NAME", "JOB_QUEUE_URL")
+
 
 def _get_env(name, required=True, default=None):
     """Read environment variable with optional requirement check.
@@ -22,6 +24,12 @@ def _get_env(name, required=True, default=None):
     if required and not value:
         raise EnvironmentError(f"Missing required environment variable: {name}")
     return value
+
+
+def _validate_required_env_vars():
+    """Fail fast when required Lambda configuration is missing."""
+    for name in REQUIRED_ENV_VARS:
+        _get_env(name)
 
 
 def _generate_job_id():
@@ -165,6 +173,9 @@ def lambda_handler(event, context):
     logger.info("Received lambda event")
 
     try:
+        _validate_required_env_vars()
+        logger.info("Validated required environment configuration")
+
         # 1. Parse and normalize the incoming body
         body = parse_event_body(event)
         logger.info("Parsed request body successfully")
@@ -206,6 +217,14 @@ def lambda_handler(event, context):
             "statusCode": 400,
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"message": str(exc)})
+        }
+
+    except EnvironmentError as exc:
+        logger.exception("Missing required Lambda configuration")
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"message": "Internal server error"})
         }
 
     except Exception as exc:
