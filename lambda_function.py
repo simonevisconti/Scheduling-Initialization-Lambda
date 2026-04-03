@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import boto3
 from botocore.exceptions import ClientError
@@ -39,7 +39,7 @@ def _generate_job_id():
 
 def _current_timestamp():
     """Return current UTC timestamp in ISO 8601 format."""
-    return datetime.utcnow().isoformat() + "Z"
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _s3_key_for_job(job_id):

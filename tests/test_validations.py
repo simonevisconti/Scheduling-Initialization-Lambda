@@ -192,6 +192,21 @@ class TestValidatePayload:
         with pytest.raises(ValueError, match="requestedBy must be a non-empty string"):
             validate_payload(body)
 
+    def test_validate_payload_empty_action(self):
+        body = {
+            "planningType": "network",
+            "action": "   ",
+            "requestedBy": "test@example.com",
+            "payload": {
+                "planningDate": "2026-04-10",
+                "planningHorizon": "daily",
+                "optimizationGoal": "distance",
+                "networkId": "nl-main-network",
+            }
+        }
+        with pytest.raises(ValueError, match="action must be a non-empty string"):
+            validate_payload(body)
+
     def test_validate_payload_vehicle_ids_must_be_non_empty_list(self):
         body = {
             "planningType": "vehicle",
@@ -203,6 +218,32 @@ class TestValidatePayload:
             }
         }
         with pytest.raises(ValueError, match="vehicleIds must be a non-empty list"):
+            validate_payload(body)
+
+    def test_validate_payload_vehicle_id_must_be_non_empty_string(self):
+        body = {
+            "planningType": "vehicle",
+            "requestedBy": "test@example.com",
+            "payload": {
+                "planningDate": "2026-04-10",
+                "regionId": "utrecht-region",
+                "vehicleId": "   ",
+            }
+        }
+        with pytest.raises(ValueError, match="vehicleId must be a non-empty string"):
+            validate_payload(body)
+
+    def test_validate_payload_vehicle_ids_items_must_be_non_empty_strings(self):
+        body = {
+            "planningType": "vehicle",
+            "requestedBy": "test@example.com",
+            "payload": {
+                "planningDate": "2026-04-10",
+                "regionId": "utrecht-region",
+                "vehicleIds": ["VEH-001", "   "],
+            }
+        }
+        with pytest.raises(ValueError, match="vehicleIds item must be a non-empty string"):
             validate_payload(body)
 
     def test_validate_payload_metadata_must_be_object(self):
@@ -218,4 +259,35 @@ class TestValidatePayload:
             "metadata": "not-an-object",
         }
         with pytest.raises(ValueError, match="metadata must be a JSON object"):
+            validate_payload(body)
+
+    def test_validate_payload_metadata_can_be_empty_object(self):
+        body = {
+            "planningType": "network",
+            "requestedBy": "test@example.com",
+            "payload": {
+                "planningDate": "2026-04-10",
+                "planningHorizon": "daily",
+                "optimizationGoal": "distance",
+                "networkId": "nl-main-network",
+            },
+            "metadata": {},
+        }
+        planning_type, payload = validate_payload(body)
+        assert planning_type == "network"
+        assert payload["networkId"] == "nl-main-network"
+
+    def test_validate_payload_order_new_constraints_must_be_object(self):
+        body = {
+            "planningType": "order",
+            "requestedBy": "test@example.com",
+            "payload": {
+                "planningDate": "2026-04-10",
+                "orderId": "ORD-1007",
+                "regionId": "utrecht-region",
+                "reason": "customer-change",
+                "newConstraints": "high-priority",
+            }
+        }
+        with pytest.raises(ValueError, match="newConstraints must be a JSON object"):
             validate_payload(body)
