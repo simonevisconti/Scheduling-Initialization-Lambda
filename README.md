@@ -1,97 +1,79 @@
-# PostNL Lambda Planning Tests
+# Scheduling Initialization Lambda
 
-## API Contract
+## Overview
 
-`lambda_handler.py` accepts planning requests from API Gateway, validates the payload, stores the original request, creates a job record, queues downstream processing, and returns an asynchronous job response.
+This project implements an AWS Lambda function that initializes asynchronous scheduling jobs.
 
-### Top-Level Request Schema
+The Lambda accepts a planning request, validates the payload, stores the full request in S3, creates a job record in DynamoDB, sends a message to SQS for downstream processing, and returns a `202 Accepted` response with the generated job information.
 
-Required fields:
+## How It Works
 
-- `planningType`: one of `network`, `region`, `vehicle`, `order`
-- `requestedBy`: non-empty string
-- `payload`: JSON object
+The request flow is:
 
-Optional fields:
+1. parse the API Gateway event body
+2. validate the request based on the selected planning type
+3. store the original payload in S3
+4. create a job record in DynamoDB
+5. enqueue the job in SQS
+6. return a `202` response with `jobId`, `planningType`, `statusUrl`, and the initial state
 
-- `action`: non-empty string
-- `metadata`: JSON object
+If validation fails, the Lambda returns `400`.
 
-### Payload by Planning Type
+If configuration or AWS interactions fail, the Lambda returns `500`.
 
-#### `network`
+## Project Structure
 
-Required payload fields:
+- [lambda_handler.py](/home/visco/projects/PostNL/lambda_handler.py): Lambda entrypoint and top-level request handling
+- [service.py](/home/visco/projects/PostNL/service.py): scheduling job orchestration
+- [aws_clients.py](/home/visco/projects/PostNL/aws_clients.py): S3, DynamoDB, and SQS interactions
+- [validations.py](/home/visco/projects/PostNL/validations.py): request parsing and payload validation
+- [responses.py](/home/visco/projects/PostNL/responses.py): reusable HTTP response builders
+- [config.py](/home/visco/projects/PostNL/config.py): environment variable helpers and status URL generation
+- [planning_examples/](/home/visco/projects/PostNL/planning_examples): sample request payloads
+- [tests/](/home/visco/projects/PostNL/tests): unit tests
 
-- `planningDate`: valid date in `YYYY-MM-DD` format
-- `planningHorizon`: non-empty string
-- `optimizationGoal`: non-empty string
-- `networkId`: non-empty string
+## Request Types
 
-#### `region`
+The Lambda currently supports these planning types:
 
-Required payload fields:
+- `network`
+- `region`
+- `vehicle`
+- `order`
 
-- `planningDate`: valid date in `YYYY-MM-DD` format
-- `regionId`: non-empty string
-- `optimizationGoal`: non-empty string
-- `reason`: non-empty string
+Each request must include:
 
-#### `vehicle`
+- `planningType`
+- `requestedBy`
+- `payload`
 
-Required payload fields:
+Optional top-level fields:
 
-- `planningDate`: valid date in `YYYY-MM-DD` format
-- `regionId`: non-empty string
+- `action`
+- `metadata`
 
-Additional rule:
+Validation rules are implemented in [validations.py](/home/visco/projects/PostNL/validations.py), and example payloads are available in [planning_examples/](/home/visco/projects/PostNL/planning_examples).
 
-- at least one of `vehicleId` or `vehicleIds` must be present
-- if `vehicleIds` is provided, it must be a non-empty list of non-empty strings
-
-#### `order`
-
-Required payload fields:
-
-- `planningDate`: valid date in `YYYY-MM-DD` format
-- `orderId`: non-empty string
-- `regionId`: non-empty string
-- `reason`: non-empty string
-
-Optional payload fields:
-
-- `newConstraints`: JSON object
-
-### Success Response
-
-On success the Lambda returns `202 Accepted` with a body like:
-
-```json
-{
-  "message": "Job accepted",
-  "jobId": "planning-1234567890abcdef",
-  "planningType": "network",
-  "statusUrl": "/planning/planning-1234567890abcdef",
-  "state": "PENDING"
-}
-```
-
-### Error Responses
-
-- `400 Bad Request`: invalid JSON, missing fields, invalid `planningType`, or invalid payload values
-- `500 Internal Server Error`: missing environment configuration or failures while interacting with S3, DynamoDB, or SQS
-
-### Request Examples
-
-Example payloads are available in [planning_examples/network_planning_final.json](/home/visco/projects/PostNL/planning_examples/network_planning_final.json), [planning_examples/region_planning_final.json](/home/visco/projects/PostNL/planning_examples/region_planning_final.json), [planning_examples/vehicle_planning_final.json](/home/visco/projects/PostNL/planning_examples/vehicle_planning_final.json), and [planning_examples/order_rescheduling_final.json](/home/visco/projects/PostNL/planning_examples/order_rescheduling_final.json).
-
-## Setup
+## AWS Configuration
 
 AWS Lambda handler to configure:
 
 ```text
 lambda_handler.lambda_handler
 ```
+
+Required environment variables:
+
+- `JOB_BUCKET_NAME`: S3 bucket where the full request payload is stored
+- `JOB_TABLE_NAME`: DynamoDB table used for job metadata
+- `JOB_QUEUE_URL`: SQS queue URL used to trigger downstream processing
+
+Optional environment variables:
+
+- `STATUS_URL_TEMPLATE`: template used to build the returned job status URL
+  Default: `/planning/{jobId}`
+
+## Local Development
 
 Install dependencies:
 
@@ -111,61 +93,60 @@ If you use the project virtual environment:
 source venv/bin/activate
 ```
 
-## Environment Variables
-
-`lambda_handler.py` expects some configuration from AWS Lambda environment variables.
-
-Required custom variables:
-
-- `JOB_BUCKET_NAME`: S3 bucket where the input payload is stored
-- `JOB_TABLE_NAME`: DynamoDB table used to persist the job record
-- `JOB_QUEUE_URL`: SQS queue URL used to trigger downstream processing
-
-Optional custom variable:
-
-- `STATUS_URL_TEMPLATE`: Template used to build the returned job status URL. Default: `/planning/{jobId}`
-
-AWS also provides standard runtime variables automatically in Lambda, such as `AWS_REGION`, but the function currently reads the custom variables above directly.
-
-Example local setup:
+Run the Lambda locally with mocked AWS services:
 
 ```bash
-export JOB_BUCKET_NAME=postnl-planning-input
-export JOB_TABLE_NAME=postnl-planning-jobs
-export JOB_QUEUE_URL=https://sqs.eu-west-1.amazonaws.com/123456789012/postnl-planning
-export STATUS_URL_TEMPLATE=/planning/{jobId}
+venv/bin/python local_run.py
 ```
 
-## Run Tests
-
-Run all tests:
+Run a specific example file:
 
 ```bash
-venv/bin/pytest -q
+venv/bin/python local_run.py planning_examples/network_planning_final.json
 ```
 
-Run specific test file:
+## Testing
+
+Run the full test suite:
 
 ```bash
-venv/bin/pytest -q tests/test_validations.py
-venv/bin/pytest -q tests/test_lambda_function.py
-venv/bin/pytest -q tests/test_service.py
-venv/bin/pytest -q tests/test_persistence.py
+venv/bin/python -m pytest -q
+```
+
+Run individual test modules:
+
+```bash
+venv/bin/python -m pytest -q tests/test_validations.py
+venv/bin/python -m pytest -q tests/test_lambda_function.py
+venv/bin/python -m pytest -q tests/test_service.py
+venv/bin/python -m pytest -q tests/test_persistence.py
 ```
 
 Run with coverage:
 
 ```bash
-venv/bin/pytest --cov=lambda_handler --cov=service --cov=aws_clients --cov=validations --cov-report=term-missing
+venv/bin/python -m pytest --cov=lambda_handler --cov=service --cov=aws_clients --cov=validations --cov-report=term-missing
 ```
 
-## Test Structure
+Test layout:
 
-- `tests/test_validations.py`: Tests for `parse_event_body` and `validate_payload`
-- `tests/test_lambda_function.py`: Tests for `lambda_handler`
-- `tests/test_service.py`: Tests for job orchestration in `service.py`
-- `tests/test_persistence.py`: Tests for S3, DynamoDB, and SQS helper functions
-- `tests/conftest.py`: Ensures project root imports work when running `pytest` directly from the virtual environment
+- [tests/test_validations.py](/home/visco/projects/PostNL/tests/test_validations.py): request parsing and validation
+- [tests/test_lambda_function.py](/home/visco/projects/PostNL/tests/test_lambda_function.py): Lambda handler behavior
+- [tests/test_service.py](/home/visco/projects/PostNL/tests/test_service.py): orchestration logic
+- [tests/test_persistence.py](/home/visco/projects/PostNL/tests/test_persistence.py): S3, DynamoDB, and SQS helper functions
 
-Tests use pytest fixtures and mocking to avoid real AWS calls.
+## Example Payloads
 
+Sample payloads are available in:
+
+- [planning_examples/network_planning_final.json](/home/visco/projects/PostNL/planning_examples/network_planning_final.json)
+- [planning_examples/region_planning_final.json](/home/visco/projects/PostNL/planning_examples/region_planning_final.json)
+- [planning_examples/vehicle_planning_final.json](/home/visco/projects/PostNL/planning_examples/vehicle_planning_final.json)
+- [planning_examples/order_rescheduling_final.json](/home/visco/projects/PostNL/planning_examples/order_rescheduling_final.json)
+
+## Notes
+
+- the full request payload is stored in S3
+- DynamoDB stores job metadata and state, not the full payload
+- SQS is used to trigger asynchronous downstream processing
+- the handler is intentionally kept small, with validation, orchestration, AWS access, and responses split into separate modules
