@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-from lambda_function import lambda_handler
+from lambda_handler import lambda_handler
 
 
 DEFAULT_EXAMPLES_DIR = Path("planning_examples")
@@ -28,14 +28,14 @@ def run_sample(sample_path):
         },
     ):
         with patch(
-            "lambda_function.persist_payload_s3",
+            "service.persist_payload_s3",
             return_value="planning-input/local-test.json",
         ):
             with patch(
-                "lambda_function.create_job_record_dynamo",
+                "service.create_job_record_dynamo",
                 return_value={"status": "PENDING"},
             ):
-                with patch("lambda_function.send_job_message_sqs"):
+                with patch("service.send_job_message_sqs"):
                     response = lambda_handler(event, None)
 
     print("Input file:", sample_path)

@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 from botocore.exceptions import ClientError
 
-from lambda_function import (
+from aws_clients import (
     create_job_record_dynamo,
     persist_payload_s3,
     send_job_message_sqs,
@@ -19,14 +19,14 @@ from lambda_function import (
     "JOB_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue",
 })
 class TestPersistenceHelpers:
-    @patch("lambda_function.boto3.client")
+    @patch("aws_clients.boto3.client")
     def test_persist_payload_s3_success(self, mock_boto3_client):
         mock_s3 = Mock()
         mock_boto3_client.return_value = mock_s3
 
         payload = {"planningType": "network"}
 
-        key = persist_payload_s3("planning-test-123", payload)
+        key = persist_payload_s3("planning-test-123", payload, "planning-input/planning-test-123.json")
 
         assert key == "planning-input/planning-test-123.json"
         mock_boto3_client.assert_called_once_with("s3")
@@ -37,7 +37,7 @@ class TestPersistenceHelpers:
         assert kwargs["ContentType"] == "application/json"
         assert json.loads(kwargs["Body"].decode("utf-8")) == payload
 
-    @patch("lambda_function.boto3.client")
+    @patch("aws_clients.boto3.client")
     def test_persist_payload_s3_client_error(self, mock_boto3_client):
         mock_s3 = Mock()
         mock_boto3_client.return_value = mock_s3
@@ -47,9 +47,9 @@ class TestPersistenceHelpers:
         )
 
         with pytest.raises(ClientError):
-            persist_payload_s3("planning-test-123", {"planningType": "network"})
+            persist_payload_s3("planning-test-123", {"planningType": "network"}, "planning-input/planning-test-123.json")
 
-    @patch("lambda_function.boto3.resource")
+    @patch("aws_clients.boto3.resource")
     def test_create_job_record_dynamo_success(self, mock_boto3_resource):
         mock_table = Mock()
         mock_dynamodb = Mock()
@@ -62,6 +62,7 @@ class TestPersistenceHelpers:
             "planner@postnl.nl",
             "replan",
             "planning-input/planning-test-123.json",
+            "2026-04-10T08:00:00Z",
         )
 
         mock_boto3_resource.assert_called_once_with("dynamodb")
@@ -77,7 +78,7 @@ class TestPersistenceHelpers:
         assert "requestBody" not in saved_item
         assert item == saved_item
 
-    @patch("lambda_function.boto3.resource")
+    @patch("aws_clients.boto3.resource")
     def test_create_job_record_dynamo_omits_empty_action(self, mock_boto3_resource):
         mock_table = Mock()
         mock_dynamodb = Mock()
@@ -90,19 +91,20 @@ class TestPersistenceHelpers:
             "planner@postnl.nl",
             None,
             "planning-input/planning-test-123.json",
+            "2026-04-10T08:00:00Z",
         )
 
         saved_item = mock_table.put_item.call_args.kwargs["Item"]
         assert "action" not in saved_item
 
-    @patch("lambda_function.boto3.resource")
+    @patch("aws_clients.boto3.resource")
     def test_update_job_status_dynamo_success(self, mock_boto3_resource):
         mock_table = Mock()
         mock_dynamodb = Mock()
         mock_dynamodb.Table.return_value = mock_table
         mock_boto3_resource.return_value = mock_dynamodb
 
-        update_job_status_dynamo("planning-test-123", "FAILED_TO_QUEUE", "SQS error")
+        update_job_status_dynamo("planning-test-123", "FAILED_TO_QUEUE", "2026-04-10T08:00:00Z", "SQS error")
 
         mock_boto3_resource.assert_called_once_with("dynamodb")
         mock_dynamodb.Table.assert_called_once_with("test-table")
@@ -112,20 +114,20 @@ class TestPersistenceHelpers:
         assert kwargs["ExpressionAttributeValues"][":status"] == "FAILED_TO_QUEUE"
         assert kwargs["ExpressionAttributeValues"][":errorMessage"] == "SQS error"
 
-    @patch("lambda_function.boto3.resource")
+    @patch("aws_clients.boto3.resource")
     def test_update_job_status_dynamo_without_error_message(self, mock_boto3_resource):
         mock_table = Mock()
         mock_dynamodb = Mock()
         mock_dynamodb.Table.return_value = mock_table
         mock_boto3_resource.return_value = mock_dynamodb
 
-        update_job_status_dynamo("planning-test-123", "PROCESSING")
+        update_job_status_dynamo("planning-test-123", "PROCESSING", "2026-04-10T08:00:00Z")
 
         kwargs = mock_table.update_item.call_args.kwargs
         assert ":errorMessage" not in kwargs["ExpressionAttributeValues"]
         assert "errorMessage" not in kwargs["UpdateExpression"]
 
-    @patch("lambda_function.boto3.client")
+    @patch("aws_clients.boto3.client")
     def test_send_job_message_sqs_success(self, mock_boto3_client):
         mock_sqs = Mock()
         mock_boto3_client.return_value = mock_sqs
@@ -147,7 +149,7 @@ class TestPersistenceHelpers:
             "payloadS3Key": "planning-input/planning-test-123.json",
         }
 
-    @patch("lambda_function.boto3.client")
+    @patch("aws_clients.boto3.client")
     def test_send_job_message_sqs_client_error(self, mock_boto3_client):
         mock_sqs = Mock()
         mock_boto3_client.return_value = mock_sqs
