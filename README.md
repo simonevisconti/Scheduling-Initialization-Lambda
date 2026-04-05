@@ -25,15 +25,15 @@ If configuration or AWS interactions fail, the Lambda returns `500`.
 
 ## Project Structure
 
-- [lambda_handler.py](/home/visco/projects/PostNL/lambda_handler.py): Lambda entrypoint and top-level request handling
-- [service.py](/home/visco/projects/PostNL/service.py): scheduling job orchestration
-- [aws_clients.py](/home/visco/projects/PostNL/aws_clients.py): S3, DynamoDB, and SQS interactions
-- [validations.py](/home/visco/projects/PostNL/validations.py): request parsing and payload validation
-- [responses.py](/home/visco/projects/PostNL/responses.py): reusable HTTP response builders
-- [config.py](/home/visco/projects/PostNL/config.py): environment variable helpers and status URL generation
-- [assets/aws-serverless-planning.svg](/home/visco/projects/PostNL/assets/aws-serverless-planning.svg): architecture diagram
-- [planning_examples/](/home/visco/projects/PostNL/planning_examples): sample request payloads
-- [tests/](/home/visco/projects/PostNL/tests): unit tests
+- [lambda_handler.py](./lambda_handler.py): Lambda entrypoint and top-level request handling
+- [service.py](./service.py): scheduling job orchestration
+- [aws_clients.py](./aws_clients.py): S3, DynamoDB, and SQS interactions
+- [validations.py](./validations.py): request parsing and payload validation
+- [responses.py](./responses.py): reusable HTTP response builders
+- [config.py](./config.py): environment variable helpers and status URL generation
+- [assets/aws-serverless-planning.svg](./assets/aws-serverless-planning.svg): architecture diagram
+- [planning_examples/](./planning_examples): sample request payloads
+- [tests/](./tests): unit tests
 
 ## Request Types
 
@@ -55,7 +55,7 @@ Optional top-level fields:
 - `action`
 - `metadata`
 
-Validation rules are implemented in [validations.py](/home/visco/projects/PostNL/validations.py), and example payloads are available in [planning_examples/](/home/visco/projects/PostNL/planning_examples).
+Validation rules are implemented in [validations.py](./validations.py), and example payloads are available in [planning_examples/](./planning_examples).
 
 ## AWS Configuration
 
@@ -84,7 +84,7 @@ Install dependencies:
 pip install -r requirements/app.txt
 ```
 
-Recompile locked dependencies after changing [requirements/app.in](/home/visco/projects/PostNL/requirements/app.in):
+Recompile locked dependencies after changing [requirements/app.in](./requirements/app.in):
 
 ```bash
 pip-compile requirements/app.in --output-file requirements/app.txt
@@ -124,19 +124,19 @@ venv/bin/python -m pytest --cov=lambda_handler --cov=service --cov=aws_clients -
 
 Test layout:
 
-- [tests/test_validations.py](/home/visco/projects/PostNL/tests/test_validations.py): request parsing and validation
-- [tests/test_lambda_function.py](/home/visco/projects/PostNL/tests/test_lambda_function.py): Lambda handler behavior
-- [tests/test_service.py](/home/visco/projects/PostNL/tests/test_service.py): orchestration logic
-- [tests/test_persistence.py](/home/visco/projects/PostNL/tests/test_persistence.py): S3, DynamoDB, and SQS helper functions
+- [tests/test_validations.py](./tests/test_validations.py): request parsing and validation
+- [tests/test_lambda_function.py](./tests/test_lambda_function.py): Lambda handler behavior
+- [tests/test_service.py](./tests/test_service.py): orchestration logic
+- [tests/test_persistence.py](./tests/test_persistence.py): S3, DynamoDB, and SQS helper functions
 
 ## Example Payloads
 
 Sample payloads are available in:
 
-- [planning_examples/network_planning_final.json](/home/visco/projects/PostNL/planning_examples/network_planning_final.json)
-- [planning_examples/region_planning_final.json](/home/visco/projects/PostNL/planning_examples/region_planning_final.json)
-- [planning_examples/vehicle_planning_final.json](/home/visco/projects/PostNL/planning_examples/vehicle_planning_final.json)
-- [planning_examples/order_rescheduling_final.json](/home/visco/projects/PostNL/planning_examples/order_rescheduling_final.json)
+- [planning_examples/network_planning_final.json](./planning_examples/network_planning_final.json)
+- [planning_examples/region_planning_final.json](./planning_examples/region_planning_final.json)
+- [planning_examples/vehicle_planning_final.json](./planning_examples/vehicle_planning_final.json)
+- [planning_examples/order_rescheduling_final.json](./planning_examples/order_rescheduling_final.json)
 
 ## Notes
 
