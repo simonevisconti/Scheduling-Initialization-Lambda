@@ -2,7 +2,7 @@
 
 ## API Contract
 
-`lambda_function.py` accepts planning requests from API Gateway, validates them, stores the original payload, creates a job record, queues downstream processing, and returns an asynchronous job response.
+`lambda_handler.py` accepts planning requests from API Gateway, validates the payload, stores the original request, creates a job record, queues downstream processing, and returns an asynchronous job response.
 
 ### Top-Level Request Schema
 
@@ -87,6 +87,12 @@ Example payloads are available in [planning_examples/network_planning_final.json
 
 ## Setup
 
+AWS Lambda handler to configure:
+
+```text
+lambda_handler.lambda_handler
+```
+
 Install dependencies:
 
 ```bash
@@ -107,7 +113,7 @@ source venv/bin/activate
 
 ## Environment Variables
 
-`lambda_function.py` expects some configuration from AWS Lambda environment variables.
+`lambda_handler.py` expects some configuration from AWS Lambda environment variables.
 
 Required custom variables:
 
@@ -143,18 +149,22 @@ Run specific test file:
 ```bash
 venv/bin/pytest -q tests/test_validations.py
 venv/bin/pytest -q tests/test_lambda_function.py
+venv/bin/pytest -q tests/test_service.py
+venv/bin/pytest -q tests/test_persistence.py
 ```
 
 Run with coverage:
 
 ```bash
-venv/bin/pytest --cov=lambda_function --cov=validations --cov-report=term-missing
+venv/bin/pytest --cov=lambda_handler --cov=service --cov=aws_clients --cov=validations --cov-report=term-missing
 ```
 
 ## Test Structure
 
 - `tests/test_validations.py`: Tests for `parse_event_body` and `validate_payload`
-- `tests/test_lambda_function.py`: Tests for `lambda_handler` with mocked AWS services
+- `tests/test_lambda_function.py`: Tests for `lambda_handler`
+- `tests/test_service.py`: Tests for job orchestration in `service.py`
+- `tests/test_persistence.py`: Tests for S3, DynamoDB, and SQS helper functions
 - `tests/conftest.py`: Ensures project root imports work when running `pytest` directly from the virtual environment
 
 Tests use pytest fixtures and mocking to avoid real AWS calls.

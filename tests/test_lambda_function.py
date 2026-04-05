@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from lambda_function import lambda_handler
+from lambda_handler import lambda_handler
 
 
 @patch.dict(os.environ, {
@@ -13,15 +13,14 @@ from lambda_function import lambda_handler
     "JOB_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue",
     "STATUS_URL_TEMPLATE": "/planning/{jobId}",
 })
-@patch("lambda_function.persist_payload_s3")
-@patch("lambda_function.create_job_record_dynamo")
-@patch("lambda_function.send_job_message_sqs")
-@patch("lambda_function.update_job_status_dynamo")
-@patch("lambda_function._generate_job_id", return_value="planning-test-123")
+@patch("lambda_handler.start_planning_job")
 class TestLambdaHandler:
-    def test_lambda_handler_network_success(self, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
-        mock_persist_s3.return_value = "planning-input/planning-test-123.json"
-        mock_create_dynamo.return_value = {"status": "PENDING"}
+    def test_lambda_handler_network_success(self, mock_start_planning_job):
+        mock_start_planning_job.return_value = {
+            "jobId": "planning-test-123",
+            "planningType": "network",
+            "state": "PENDING",
+        }
 
         event = {
             "body": json.dumps({
@@ -46,22 +45,14 @@ class TestLambdaHandler:
         assert body["planningType"] == "network"
         assert body["statusUrl"] == "/planning/planning-test-123"
         assert body["state"] == "PENDING"
+        mock_start_planning_job.assert_called_once()
 
-        mock_persist_s3.assert_called_once()
-        mock_create_dynamo.assert_called_once()
-        mock_send_sqs.assert_called_once()
-        mock_update_dynamo_status.assert_not_called()
-        mock_create_dynamo.assert_called_once_with(
-            "planning-test-123",
-            "network",
-            "test@example.com",
-            "replan",
-            "planning-input/planning-test-123.json",
-        )
-
-    def test_lambda_handler_region_success(self, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
-        mock_persist_s3.return_value = "planning-input/planning-test-123.json"
-        mock_create_dynamo.return_value = {"status": "PENDING"}
+    def test_lambda_handler_region_success(self, mock_start_planning_job):
+        mock_start_planning_job.return_value = {
+            "jobId": "planning-test-123",
+            "planningType": "region",
+            "state": "PENDING",
+        }
 
         event = {
             "body": json.dumps({
@@ -82,9 +73,12 @@ class TestLambdaHandler:
         body = json.loads(response["body"])
         assert body["planningType"] == "region"
 
-    def test_lambda_handler_vehicle_success(self, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
-        mock_persist_s3.return_value = "planning-input/planning-test-123.json"
-        mock_create_dynamo.return_value = {"status": "PENDING"}
+    def test_lambda_handler_vehicle_success(self, mock_start_planning_job):
+        mock_start_planning_job.return_value = {
+            "jobId": "planning-test-123",
+            "planningType": "vehicle",
+            "state": "PENDING",
+        }
 
         event = {
             "body": json.dumps({
@@ -104,9 +98,12 @@ class TestLambdaHandler:
         body = json.loads(response["body"])
         assert body["planningType"] == "vehicle"
 
-    def test_lambda_handler_order_success(self, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
-        mock_persist_s3.return_value = "planning-input/planning-test-123.json"
-        mock_create_dynamo.return_value = {"status": "PENDING"}
+    def test_lambda_handler_order_success(self, mock_start_planning_job):
+        mock_start_planning_job.return_value = {
+            "jobId": "planning-test-123",
+            "planningType": "order",
+            "state": "PENDING",
+        }
 
         event = {
             "body": json.dumps({
@@ -128,7 +125,7 @@ class TestLambdaHandler:
         body = json.loads(response["body"])
         assert body["planningType"] == "order"
 
-    def test_lambda_handler_invalid_json(self, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
+    def test_lambda_handler_invalid_json(self, mock_start_planning_job):
         event = {"body": "{invalid json"}
 
         response = lambda_handler(event, None)
@@ -136,8 +133,9 @@ class TestLambdaHandler:
         assert response["statusCode"] == 400
         body = json.loads(response["body"])
         assert "Invalid JSON in request body" in body["message"]
+        mock_start_planning_job.assert_not_called()
 
-    def test_lambda_handler_validation_error(self, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
+    def test_lambda_handler_validation_error(self, mock_start_planning_job):
         event = {
             "body": json.dumps({
                 "planningType": "invalid",
@@ -151,9 +149,10 @@ class TestLambdaHandler:
         assert response["statusCode"] == 400
         body = json.loads(response["body"])
         assert "planningType must be one of" in body["message"]
+        mock_start_planning_job.assert_not_called()
 
     @patch.dict(os.environ, {}, clear=True)
-    def test_lambda_handler_missing_required_env_returns_server_error(self, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
+    def test_lambda_handler_missing_required_env_returns_server_error(self, mock_start_planning_job):
         event = {
             "body": json.dumps({
                 "planningType": "network",
@@ -172,13 +171,10 @@ class TestLambdaHandler:
         assert response["statusCode"] == 500
         body = json.loads(response["body"])
         assert body["message"] == "Internal server error"
-        mock_persist_s3.assert_not_called()
-        mock_create_dynamo.assert_not_called()
-        mock_send_sqs.assert_not_called()
-        mock_update_dynamo_status.assert_not_called()
+        mock_start_planning_job.assert_not_called()
 
-    @patch("lambda_function.persist_payload_s3", side_effect=Exception("S3 error"))
-    def test_lambda_handler_server_error(self, mock_s3_error, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
+    def test_lambda_handler_server_error(self, mock_start_planning_job):
+        mock_start_planning_job.side_effect = Exception("S3 error")
         event = {
             "body": json.dumps({
                 "planningType": "network",
@@ -197,32 +193,3 @@ class TestLambdaHandler:
         assert response["statusCode"] == 500
         body = json.loads(response["body"])
         assert body["message"] == "Internal server error"
-
-    def test_lambda_handler_marks_job_failed_to_queue(self, mock_generate_job_id, mock_update_dynamo_status, mock_send_sqs, mock_create_dynamo, mock_persist_s3):
-        mock_persist_s3.return_value = "planning-input/planning-test-123.json"
-        mock_create_dynamo.return_value = {"status": "PENDING"}
-        mock_send_sqs.side_effect = Exception("SQS error")
-
-        event = {
-            "body": json.dumps({
-                "planningType": "network",
-                "requestedBy": "test@example.com",
-                "payload": {
-                    "planningDate": "2026-04-10",
-                    "planningHorizon": "daily",
-                    "optimizationGoal": "distance",
-                    "networkId": "nl-main-network",
-                }
-            })
-        }
-
-        response = lambda_handler(event, None)
-
-        assert response["statusCode"] == 500
-        body = json.loads(response["body"])
-        assert body["message"] == "Internal server error"
-        mock_update_dynamo_status.assert_called_once_with(
-            "planning-test-123",
-            "FAILED_TO_QUEUE",
-            "SQS error",
-        )
