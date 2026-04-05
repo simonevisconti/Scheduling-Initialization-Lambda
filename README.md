@@ -6,6 +6,8 @@ This project implements an AWS Lambda function that initializes asynchronous sch
 
 The Lambda accepts a planning request, validates the payload, stores the full request in S3, creates a job record in DynamoDB, sends a message to SQS for downstream processing, and returns a `202 Accepted` response with the generated job information.
 
+The implemented Lambda in this repository is `StartPlanning`. Downstream processing and job status retrieval are represented in the architecture diagram for context, while the submitted code focuses on the required API entrypoint.
+
 ![AWS Serverless Planning Diagram](./assets/aws-serverless-planning.svg)
 
 ## How It Works
