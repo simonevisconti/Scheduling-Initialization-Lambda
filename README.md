@@ -6,6 +6,8 @@ This project implements an AWS Lambda function that initializes asynchronous sch
 
 The Lambda accepts a planning request, validates the payload, stores the full request in S3, creates a job record in DynamoDB, sends a message to SQS for downstream processing, and returns a `202 Accepted` response with the generated job information.
 
+![AWS Serverless Planning Diagram](./assets/aws-serverless-planning.svg)
+
 ## How It Works
 
 The request flow is:
@@ -29,6 +31,7 @@ If configuration or AWS interactions fail, the Lambda returns `500`.
 - [validations.py](/home/visco/projects/PostNL/validations.py): request parsing and payload validation
 - [responses.py](/home/visco/projects/PostNL/responses.py): reusable HTTP response builders
 - [config.py](/home/visco/projects/PostNL/config.py): environment variable helpers and status URL generation
+- [assets/aws-serverless-planning.svg](/home/visco/projects/PostNL/assets/aws-serverless-planning.svg): architecture diagram
 - [planning_examples/](/home/visco/projects/PostNL/planning_examples): sample request payloads
 - [tests/](/home/visco/projects/PostNL/tests): unit tests
 
@@ -110,17 +113,7 @@ venv/bin/python local_run.py planning_examples/network_planning_final.json
 Run the full test suite:
 
 ```bash
-venv/bin/python -m pytest -q
-```
-
-Run individual test modules:
-
-```bash
-venv/bin/python -m pytest -q tests/test_validations.py
-venv/bin/python -m pytest -q tests/test_lambda_function.py
-venv/bin/python -m pytest -q tests/test_service.py
-venv/bin/python -m pytest -q tests/test_persistence.py
-```
+venv/bin/python -m pytest
 
 Run with coverage:
 
