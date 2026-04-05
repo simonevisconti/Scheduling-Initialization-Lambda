@@ -114,6 +114,7 @@ Run the full test suite:
 
 ```bash
 venv/bin/python -m pytest
+```
 
 Run with coverage:
 
