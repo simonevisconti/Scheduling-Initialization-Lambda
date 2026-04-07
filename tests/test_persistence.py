@@ -63,6 +63,7 @@ class TestPersistenceHelpers:
             "replan",
             "planning-input/planning-test-123.json",
             "2026-04-10T08:00:00Z",
+            1796457600,
         )
 
         mock_boto3_resource.assert_called_once_with("dynamodb")
@@ -72,6 +73,7 @@ class TestPersistenceHelpers:
         assert saved_item["jobId"] == "planning-test-123"
         assert saved_item["planningType"] == "network"
         assert saved_item["status"] == "PENDING"
+        assert saved_item["expiresAt"] == 1796457600
         assert saved_item["payloadS3Key"] == "planning-input/planning-test-123.json"
         assert saved_item["requestedBy"] == "planner@postnl.nl"
         assert saved_item["action"] == "replan"
@@ -92,6 +94,7 @@ class TestPersistenceHelpers:
             None,
             "planning-input/planning-test-123.json",
             "2026-04-10T08:00:00Z",
+            1796457600,
         )
 
         saved_item = mock_table.put_item.call_args.kwargs["Item"]

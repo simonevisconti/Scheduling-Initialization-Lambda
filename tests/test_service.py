@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from service import current_timestamp, s3_key_for_job, start_planning_job
+from service import current_timestamp, s3_key_for_job, start_planning_job, ttl_timestamp
 
 
 class TestServiceHelpers:
@@ -12,11 +12,15 @@ class TestServiceHelpers:
     def test_current_timestamp_uses_utc_suffix(self):
         assert current_timestamp().endswith("Z")
 
+    def test_ttl_timestamp_returns_unix_seconds_in_future(self):
+        assert ttl_timestamp() > 0
+
 
 @patch("service.send_job_message_sqs")
 @patch("service.update_job_status_dynamo")
 @patch("service.create_job_record_dynamo")
 @patch("service.persist_payload_s3")
+@patch("service.ttl_timestamp", return_value=1796457600)
 @patch("service.current_timestamp", side_effect=["2026-04-10T08:00:00Z", "2026-04-10T08:05:00Z"])
 @patch("service.generate_job_id", return_value="planning-test-123")
 class TestStartPlanningJob:
@@ -24,6 +28,7 @@ class TestStartPlanningJob:
         self,
         mock_generate_job_id,
         mock_current_timestamp,
+        mock_ttl_timestamp,
         mock_persist_payload_s3,
         mock_create_job_record_dynamo,
         mock_update_job_status_dynamo,
@@ -56,6 +61,7 @@ class TestStartPlanningJob:
             "replan",
             "planning-input/planning-test-123.json",
             "2026-04-10T08:00:00Z",
+            1796457600,
         )
         mock_send_job_message_sqs.assert_called_once_with(
             "planning-test-123",
@@ -68,6 +74,7 @@ class TestStartPlanningJob:
         self,
         mock_generate_job_id,
         mock_current_timestamp,
+        mock_ttl_timestamp,
         mock_persist_payload_s3,
         mock_create_job_record_dynamo,
         mock_update_job_status_dynamo,

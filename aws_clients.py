@@ -25,7 +25,7 @@ def persist_payload_s3(job_id, data, s3_key):
     return s3_key
 
 
-def create_job_record_dynamo(job_id, planning_type, requested_by, action, s3_key, timestamp):
+def create_job_record_dynamo(job_id, planning_type, requested_by, action, s3_key, timestamp, expires_at):
     """Create a job record in DynamoDB with initial PENDING state."""
     table_name = get_env("JOB_TABLE_NAME")
     dynamodb = boto3.resource("dynamodb")
@@ -37,6 +37,7 @@ def create_job_record_dynamo(job_id, planning_type, requested_by, action, s3_key
         "status": "PENDING",
         "createdAt": timestamp,
         "updatedAt": timestamp,
+        "expiresAt": expires_at,
         "payloadS3Key": s3_key,
         "requestedBy": requested_by,
     }

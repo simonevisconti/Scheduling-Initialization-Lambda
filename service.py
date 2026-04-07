@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from aws_clients import (
     create_job_record_dynamo,
@@ -20,6 +20,12 @@ def generate_job_id():
 def current_timestamp():
     """Return current UTC timestamp in ISO 8601 format."""
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def ttl_timestamp(days=365):
+    """Return a Unix timestamp in seconds for DynamoDB TTL."""
+    expires_at = datetime.now(timezone.utc) + timedelta(days=days)
+    return int(expires_at.timestamp())
 
 
 def s3_key_for_job(job_id):
@@ -43,6 +49,7 @@ def start_planning_job(body, planning_type):
         body.get("action"),
         s3_key,
         timestamp,
+        ttl_timestamp(),
     )
 
     try:
