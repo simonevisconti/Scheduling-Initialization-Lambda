@@ -22,3 +22,8 @@ def job_status_url(job_id):
     """Generate status URL for a given jobId."""
     template = os.getenv("STATUS_URL_TEMPLATE", "/planning/{jobId}")
     return template.format(jobId=job_id)
+
+
+def sqs_message_group_id(planning_type):
+    """Return the FIFO message group id for SQS."""
+    return os.getenv("JOB_QUEUE_MESSAGE_GROUP_ID", f"planning-{planning_type}")

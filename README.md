@@ -71,12 +71,14 @@ Required environment variables:
 
 - `JOB_BUCKET_NAME`: S3 bucket where the full request payload is stored
 - `JOB_TABLE_NAME`: DynamoDB table used for job metadata
-- `JOB_QUEUE_URL`: SQS queue URL used to trigger downstream processing
+- `JOB_QUEUE_URL`: FIFO SQS queue URL used to trigger downstream processing
 
 Optional environment variables:
 
 - `STATUS_URL_TEMPLATE`: template used to build the returned job status URL
   Default: `/planning/{jobId}`
+- `JOB_QUEUE_MESSAGE_GROUP_ID`: FIFO SQS message group id
+  Default: `planning-{planningType}`
 
 ## Local Development
 
@@ -145,4 +147,5 @@ Sample payloads are available in:
 - the full request payload is stored in S3
 - DynamoDB stores job metadata and state, not the full payload
 - SQS is used to trigger asynchronous downstream processing
+- SQS messages are sent with FIFO metadata using `MessageGroupId` and `MessageDeduplicationId`
 - the handler is intentionally kept small, with validation, orchestration, AWS access, and responses split into separate modules

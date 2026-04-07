@@ -4,7 +4,7 @@ import logging
 import boto3
 from botocore.exceptions import ClientError
 
-from config import get_env
+from config import get_env, sqs_message_group_id
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ def update_job_status_dynamo(job_id, status, timestamp, error_message=None):
 
 
 def send_job_message_sqs(job_id, planning_type, s3_key):
-    """Send a message to SQS to trigger downstream processing."""
+    """Send a message to a FIFO SQS queue to trigger downstream processing."""
     queue_url = get_env("JOB_QUEUE_URL")
     sqs = boto3.client("sqs")
 
@@ -94,11 +94,22 @@ def send_job_message_sqs(job_id, planning_type, s3_key):
         "planningType": planning_type,
         "payloadS3Key": s3_key,
     })
+    message_group_id = sqs_message_group_id(planning_type)
 
     try:
-        sqs.send_message(QueueUrl=queue_url, MessageBody=message_body)
+        sqs.send_message(
+            QueueUrl=queue_url,
+            MessageBody=message_body,
+            MessageGroupId=message_group_id,
+            MessageDeduplicationId=job_id,
+        )
     except ClientError:
         logger.exception("Failed to send message to SQS for jobId=%s queueUrl=%s", job_id, queue_url)
         raise
 
-    logger.info("Queued planning job for jobId=%s planningType=%s", job_id, planning_type)
+    logger.info(
+        "Queued planning job for jobId=%s planningType=%s messageGroupId=%s",
+        job_id,
+        planning_type,
+        message_group_id,
+    )
