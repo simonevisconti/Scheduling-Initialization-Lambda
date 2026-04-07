@@ -25,7 +25,7 @@ class TestParseEventBody:
             parse_event_body(event)
 
     def test_parse_event_body_not_dict(self):
-        event = {"body": "not a dict"}
+        event = {"body": '["not", "a", "dict"]'}
         with pytest.raises(ValueError, match="Request body must be a JSON object"):
             parse_event_body(event)
 

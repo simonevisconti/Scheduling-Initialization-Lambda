@@ -16,8 +16,6 @@ def parse_event_body(event):
         raise ValueError("Request body is required")
 
     if isinstance(body, str):
-        if not body.lstrip().startswith("{"):
-            raise ValueError("Request body must be a JSON object")
         try:
             body = json.loads(body)
         except json.JSONDecodeError as exc:
