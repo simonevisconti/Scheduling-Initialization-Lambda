@@ -16,7 +16,7 @@ from aws_clients import (
 @patch.dict(os.environ, {
     "JOB_BUCKET_NAME": "test-bucket",
     "JOB_TABLE_NAME": "test-table",
-    "JOB_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue",
+    "JOB_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue.fifo",
 })
 class TestPersistenceHelpers:
     @patch("aws_clients.boto3.client")
@@ -141,13 +141,35 @@ class TestPersistenceHelpers:
         mock_boto3_client.assert_called_once_with("sqs")
         mock_sqs.send_message.assert_called_once()
         kwargs = mock_sqs.send_message.call_args.kwargs
-        assert kwargs["QueueUrl"] == "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue"
+        assert kwargs["QueueUrl"] == "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue.fifo"
+        assert kwargs["MessageGroupId"] == "planning-vehicle"
+        assert kwargs["MessageDeduplicationId"] == "planning-test-123"
         message_body = json.loads(kwargs["MessageBody"])
         assert message_body == {
             "jobId": "planning-test-123",
             "planningType": "vehicle",
             "payloadS3Key": "planning-input/planning-test-123.json",
         }
+
+    @patch.dict(os.environ, {
+        "JOB_BUCKET_NAME": "test-bucket",
+        "JOB_TABLE_NAME": "test-table",
+        "JOB_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456789012/test-queue.fifo",
+        "JOB_QUEUE_MESSAGE_GROUP_ID": "planning-jobs",
+    })
+    @patch("aws_clients.boto3.client")
+    def test_send_job_message_sqs_uses_configured_message_group_id(self, mock_boto3_client):
+        mock_sqs = Mock()
+        mock_boto3_client.return_value = mock_sqs
+
+        send_job_message_sqs(
+            "planning-test-123",
+            "vehicle",
+            "planning-input/planning-test-123.json",
+        )
+
+        kwargs = mock_sqs.send_message.call_args.kwargs
+        assert kwargs["MessageGroupId"] == "planning-jobs"
 
     @patch("aws_clients.boto3.client")
     def test_send_job_message_sqs_client_error(self, mock_boto3_client):
